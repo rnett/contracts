@@ -76,6 +76,10 @@ class Contract(id: EntityID<Int>) : IntEntity(id), IContract {
 
     val bpcs by lazy { blueprints.map { it.asBpc() }.filterNotNull() }
     val bpos by lazy { blueprints.map { it.asBpo() }.filterNotNull() }
+
+    override fun toString(): String {
+        return title + " : $price ISK [$type]"
+    }
 }
 
 object contractitems : IntIdTable(columnName = "contractid\" << 8 | \"itemid") {
@@ -130,5 +134,13 @@ class ContractItem(id: EntityID<Int>) : IntEntity(id) {
     }
 
     fun toBlueprint() = Blueprint.fromItem(this)
+
+    override fun toString(): String {
+        return when (bpType) {
+            BPType.BPC -> type.typeName + " ($me, $te) x $runs [BPC]"
+            BPType.BPO -> type.typeName + " ($me, $te) [BPO]"
+            BPType.NotBP -> type.typeName + " x $quantity"
+        }
+    }
 
 }
