@@ -1,17 +1,18 @@
 package com.rnett.ligraph.eve.contracts
 
 import com.github.salomonbrys.kotson.fromJson
-import com.github.salomonbrys.kotson.nullBool
 import com.github.salomonbrys.kotson.nullInt
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
+import com.rnett.ligraph.eve.contracts.blueprints.BPType
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.apache.Apache
 import io.ktor.client.request.get
 import kotlinx.coroutines.experimental.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.postgresql.core.Utils
 
 object ContractUpdater {
 
@@ -77,7 +78,7 @@ object ContractUpdater {
     }
 
     fun updateContractsForRegion(regionID: Int = 10000002 /*The Forge*/): Pair<Int, Int> {
-        removeExpired()
+        removeExpired() //TODO remove contracts not found in query
 
         val client = HttpClient(Apache)
         val parser = JsonParser()
@@ -130,10 +131,15 @@ object ContractUpdater {
 
         contract.apply {
             transaction {
+
+                val escapedTitle = StringBuilder()
+
+                Utils.escapeLiteral(escapedTitle, title, true)
+
                 TransactionManager.current().exec("""INSERT INTO contracts VALUES
                     |($contractId, $collateral, '$rawDateIssued', '$rawDateExpired', $daysToComplete, $endLocationId,
                     |$forCorporation, $issuerCorporationId, $issuerId, $price, $reward, $startLocationId,
-                    |'$title', '$rawType', $volume);""".trimMargin())
+                    |'$escapedTitle', '$rawType', $volume);""".trimMargin())
             }
         }
         if (contract.type.hasItems)
@@ -170,16 +176,29 @@ object ContractUpdater {
 
         transaction {
             items.map { it.asJsonObject }.forEach {
+
+                val me = if (it.has("material_efficiency")) it["material_efficiency"].nullInt?.toString()
+                        ?: "null" else "null"
+
+                val te = if (it.has("time_efficiency")) it["time_efficiency"].nullInt?.toString() ?: "null" else "null"
+
+                var runs = if (it.has("runs")) it["runs"].nullInt?.toString() ?: "null" else "null"
+
+                val bp = me != "null"
+
+                val bpType = when {
+                    me == "null" -> BPType.NotBP
+                    runs == "null" -> BPType.BPO
+                    runs != "null" -> BPType.BPC
+                    else -> BPType.NotBP
+                }
+
+                if (bpType == BPType.BPO)
+                    runs = "0"
+
                 TransactionManager.current().exec("""INSERT INTO contractitems VALUES (
                     |$contractId, ${it["item_id"]?.nullInt ?: 0}, ${it["type_id"].asInt}, ${it["quantity"].asInt},
-                    |${if (it.has("material_efficiency")) it["material_efficiency"].nullInt?.toString() ?: "null"
-                else "null"},
-                    |${if (it.has("time_efficiency")) it["time_efficiency"].nullInt?.toString() ?: "null"
-                else "null"},
-                    |${if (it.has("runs")) it["runs"].nullInt?.toString() ?: "null"
-                else "null"},
-                    |${if (it.has("is_blueprint_copy")) it["is_blueprint_copy"].nullBool?.toString() ?: "false"
-                else "false"}
+                    |$me, $te, $runs, '$bpType'
                 |);""".trimMargin())
             }
         }

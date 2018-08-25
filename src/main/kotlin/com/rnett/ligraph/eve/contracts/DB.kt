@@ -5,6 +5,7 @@ import com.rnett.eve.ligraph.sde.invtypematerials
 import com.rnett.eve.ligraph.sde.invtypes
 import com.rnett.ligraph.eve.contracts.blueprints.BPC
 import com.rnett.ligraph.eve.contracts.blueprints.BPO
+import com.rnett.ligraph.eve.contracts.blueprints.BPType
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
@@ -62,8 +63,8 @@ class Contract(id: EntityID<Int>) : IntEntity(id), IContract {
 
     val blueprints by lazy {
         transaction {
-            items.filter { it.type.group.category.categoryID == 9 /* Blueprints */ }.map {
-                if (it.isBpc) {
+            items.filter { it.bpType != BPType.NotBP }.map {
+                if (it.bpType == BPType.BPC) {
                     BPC(it.type, it.runs!!, it.me ?: 0, it.te ?: 0)
                 } else {
                     BPO(it.type, it.me ?: 0, it.te ?: 0)
@@ -85,7 +86,7 @@ object contractitems : IntIdTable(columnName = "contractid\" << 8 | \"itemid") {
     val me = integer("me").nullable()
     val te = integer("te").nullable()
     val runs = integer("runs").nullable()
-    val isBpc = bool("isbpc")
+    val rawBpType = varchar("bptype", 20)
 
     val contract = reference("contractid", contracts)
     val type = reference("typeid", invtypes)
@@ -109,11 +110,12 @@ class ContractItem(id: EntityID<Int>) : IntEntity(id) {
     val me by contractitems.me
     val te by contractitems.te
     val runs by contractitems.runs
-    val isBpc by contractitems.isBpc
+    val rawBpType by contractitems.rawBpType
 
     val contract by Contract referencedOn contractitems.contract
     val type by invtype referencedOn contractitems.type
 
+    val bpType by lazy { BPType.valueOf(rawBpType) }
 
     override fun equals(other: Any?): Boolean {
         if (other == null || other !is ContractItem)

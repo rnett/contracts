@@ -5,7 +5,8 @@ import com.rnett.eve.ligraph.sde.invtype
 import org.jetbrains.exposed.sql.transactions.transaction
 
 abstract class Blueprint(val bpType: invtype, val runs: Int, val me: Int = 0, val te: Int = 0) {
-    val isCopy: Boolean = runs < 0
+    val isCopy: Boolean = runs == 0
+    val type: BPType = if (isCopy) BPType.BPC else BPType.BPO
 
     val recipe: industryactivityrecipe
     val productType: invtype
@@ -24,6 +25,9 @@ abstract class Blueprint(val bpType: invtype, val runs: Int, val me: Int = 0, va
             else null
 }
 
+enum class BPType {
+    BPC, BPO, NotBP;
+}
 
 class BPC(bpType: invtype, runs: Int, me: Int = 0, te: Int = 0) : Blueprint(bpType, runs, me, te) {
 
@@ -43,7 +47,7 @@ class BPC(bpType: invtype, runs: Int, me: Int = 0, te: Int = 0) : Blueprint(bpTy
 
 }
 
-class BPO(bpType: invtype, me: Int = 0, te: Int = 0) : Blueprint(bpType, -1, me, te) {
+class BPO(bpType: invtype, me: Int = 0, te: Int = 0) : Blueprint(bpType, 0, me, te) {
 
     companion object {
         fun forProduct(productType: invtype, me: Int = 0, te: Int = 0): BPO {
