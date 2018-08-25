@@ -12,8 +12,9 @@ abstract class Blueprint(val bpType: invtype, val runs: Int, val me: Int = 0, va
     val productType: invtype
 
     init {
-        recipe = bpType.invtype_industryactivityrecipes_type.filter { it.activityID == 1 }.first()
-        productType = recipe.productType
+        recipe = transaction { bpType.invtype_industryactivityrecipes_type.filter { it.activityID == 1 }.first() }
+        productType = transaction { recipe.productType }
+
     }
 
     fun asBpo(): BPO? =
