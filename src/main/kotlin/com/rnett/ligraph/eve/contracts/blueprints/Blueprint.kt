@@ -6,7 +6,7 @@ import com.rnett.ligraph.eve.contracts.ContractItem
 import org.jetbrains.exposed.sql.transactions.transaction
 
 abstract class Blueprint(val bpType: invtype, val runs: Int, val me: Int = 0, val te: Int = 0) {
-    val isCopy: Boolean = runs == 0
+    val isCopy: Boolean = runs > 0
     val type: BPType = if (isCopy) BPType.BPC else BPType.BPO
 
     val recipe: industryactivityrecipe
