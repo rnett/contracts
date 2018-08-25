@@ -6,6 +6,7 @@ import com.rnett.eve.ligraph.sde.invtypes
 import com.rnett.ligraph.eve.contracts.blueprints.BPC
 import com.rnett.ligraph.eve.contracts.blueprints.BPO
 import com.rnett.ligraph.eve.contracts.blueprints.BPType
+import com.rnett.ligraph.eve.contracts.blueprints.Blueprint
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
@@ -121,12 +122,13 @@ class ContractItem(id: EntityID<Int>) : IntEntity(id) {
         if (other == null || other !is ContractItem)
             return false
 
-        other
         return other.contractId == contractId && other.itemId == itemId
     }
 
     override fun hashCode(): Int {
         return invtypematerials.idFromPKs(contractId, itemId)
     }
+
+    fun toBlueprint() = Blueprint.fromItem(this)
 
 }

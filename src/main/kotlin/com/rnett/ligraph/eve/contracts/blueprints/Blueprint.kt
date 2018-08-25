@@ -2,6 +2,7 @@ package com.rnett.ligraph.eve.contracts.blueprints
 
 import com.rnett.eve.ligraph.sde.industryactivityrecipe
 import com.rnett.eve.ligraph.sde.invtype
+import com.rnett.ligraph.eve.contracts.ContractItem
 import org.jetbrains.exposed.sql.transactions.transaction
 
 abstract class Blueprint(val bpType: invtype, val runs: Int, val me: Int = 0, val te: Int = 0) {
@@ -24,6 +25,21 @@ abstract class Blueprint(val bpType: invtype, val runs: Int, val me: Int = 0, va
     fun asBpc(): BPC? =
             if (this is BPC) this
             else null
+
+    companion object {
+        fun fromItem(item: ContractItem): Blueprint {
+
+            if (item.bpType == BPType.NotBP)
+                throw IllegalArgumentException("Item is not a blueprint")
+
+            return if (item.bpType == BPType.BPC) {
+                BPC(item.type, item.runs!!, item.me ?: 0, item.te ?: 0)
+            } else {
+                BPO(item.type, item.me ?: 0, item.te ?: 0)
+            }
+        }
+    }
+
 }
 
 enum class BPType {
