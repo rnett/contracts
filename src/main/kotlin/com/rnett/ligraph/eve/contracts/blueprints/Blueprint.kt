@@ -62,6 +62,8 @@ class BPC(bpType: invtype, runs: Int, me: Int = 0, te: Int = 0) : Blueprint(bpTy
         }
     }
 
+    override fun toString(): String = "${bpType.typeName} ($me, $te) x $runs [BPC]"
+
 }
 
 class BPO(bpType: invtype, me: Int = 0, te: Int = 0) : Blueprint(bpType, 0, me, te) {
@@ -74,4 +76,6 @@ class BPO(bpType: invtype, me: Int = 0, te: Int = 0) : Blueprint(bpType, 0, me, 
             )
         }
     }
+
+    override fun toString(): String = "${bpType.typeName} ($me, $te) [BPO]"
 }
