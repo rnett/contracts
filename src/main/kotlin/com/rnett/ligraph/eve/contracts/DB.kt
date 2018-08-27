@@ -80,6 +80,17 @@ class Contract(id: EntityID<Int>) : IntEntity(id), IContract {
     override fun toString(): String {
         return title + " : $price ISK [$type]"
     }
+
+    override fun hashCode(): Int {
+        return contractId
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other !is Contract)
+            return false
+
+        return other.contractId == contractId
+    }
 }
 
 object contractitems : IntIdTable(columnName = "contractid\" << 8 | \"itemid") {
