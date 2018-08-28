@@ -14,6 +14,7 @@ import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.postgresql.core.Utils
 
+
 object ContractUpdater {
 
     val regions = mutableListOf<Int>()
@@ -77,6 +78,7 @@ object ContractUpdater {
         _running = false
     }
 
+    //TODO use pagination using response header properly.  x-pages in the header will contain the # of pages
     fun updateContractsForRegion(regionID: Int = 10000002 /*The Forge*/): Pair<Int, Int> {
         removeExpired() //TODO remove contracts not found in query
 
@@ -97,6 +99,8 @@ object ContractUpdater {
                     headers["accept"] = "application/json"
                 }
             }
+
+            println("Trying page $page")
 
             if (text != "[]")
                 contracts.addAll(parser.parse(text).asJsonArray.toList())
