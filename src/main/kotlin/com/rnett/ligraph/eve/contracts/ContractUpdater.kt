@@ -9,12 +9,17 @@ import com.rnett.ligraph.eve.contracts.blueprints.BPType
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.apache.Apache
 import io.ktor.client.request.get
+import io.ktor.client.response.HttpResponse
+import io.ktor.client.response.readText
 import kotlinx.coroutines.experimental.*
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import org.postgresql.core.Utils
 
-
+//TODO use e-tag (send, get 304 if no changes)
 object ContractUpdater {
 
     val regions = mutableListOf<Int>()
@@ -80,132 +85,124 @@ object ContractUpdater {
 
     //TODO use pagination using response header properly.  x-pages in the header will contain the # of pages
     fun updateContractsForRegion(regionID: Int = 10000002 /*The Forge*/): Pair<Int, Int> {
-        removeExpired() //TODO remove contracts not found in query
 
-        val client = HttpClient(Apache)
-        val parser = JsonParser()
+        println("[${DateTime.now()}] Starting Contracts")
 
-        var url: String
-        var page = 1
+        val newContracts = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/$regionID/?datasource=tranquility&page=$it" }).map { Gson().fromJson<GsonContract>(it) }
 
-        var text: String
+        println("[${DateTime.now()}] ESI Query Done")
 
-        val contracts = mutableListOf<JsonElement>()
+        val newIds = newContracts.map { it.contractId }.toSet()
 
-        do {
-            url = "https://esi.evetech.net/latest/contracts/public/$regionID/?datasource=tranquility&page=$page"
-            text = runBlocking {
-                client.get<String>(url) {
-                    headers["accept"] = "application/json"
-                }
-            }
+        val have = transaction { contracts.slice(contracts.contractId).selectAll().map { it[contracts.contractId] }.toSet() }
 
-            println("Trying page $page")
+        val toRemove = have.filter { !newIds.contains(it) }
+        transaction { contracts.deleteWhere { contracts.contractId inList toRemove } }
 
-            if (text != "[]")
-                contracts.addAll(parser.parse(text).asJsonArray.toList())
+        println("[${DateTime.now()}] Deletion Done")
 
-            page++
-        } while (text != "[]" && text != "")
+        val toAdd = newContracts.filter { !have.contains(it.contractId) }
 
-        var updated = 0
-        var skipped = 0
+        if (toAdd.count() == 0)
+            return Pair(0, newContracts.count())
 
-        contracts.forEach {
-            val contract = Gson().fromJson<GsonContract>(it)
-            if (writeContract(contract))
-                updated++
-            else
-                skipped++
-        }
-        return Pair(updated, skipped)
-    }
-
-    fun removeExpired() {
-        transaction {
-            //TODO better way of doing this.  need to use now in postgres
-            Contract.all().filter { it.expired }.forEach { it.delete() }
-        }
-    }
-
-    private fun writeContract(contract: GsonContract): Boolean {
-
-        if (transaction { Contract.findById(contract.contractId) } != null)
-            return false
-
-        contract.apply {
-            transaction {
-
+        val insertQuery = toAdd.joinToString(", ", "INSERT INTO contracts VALUES ", ";") {
+            it.run {
                 val escapedTitle = StringBuilder()
 
                 Utils.escapeLiteral(escapedTitle, title, true)
 
-                TransactionManager.current().exec("""INSERT INTO contracts VALUES
-                    |($contractId, $collateral, '$rawDateIssued', '$rawDateExpired', $daysToComplete, $endLocationId,
-                    |$forCorporation, $issuerCorporationId, $issuerId, $price, $reward, $startLocationId,
-                    |'$escapedTitle', '$rawType', $volume);""".trimMargin())
+                "($contractId, $collateral, '$rawDateIssued', '$rawDateExpired', $daysToComplete, $endLocationId, " +
+                        "$forCorporation, $issuerCorporationId, $issuerId, $price, $reward, $startLocationId, " +
+                        "'$escapedTitle', '$rawType', $volume)"
             }
         }
-        if (contract.type.hasItems)
-            writeItems(contract.contractId)
 
-        return true
+        println("[${DateTime.now()}] Contracts Query Built")
+
+        transaction {
+            TransactionManager.current().exec(insertQuery)
+        }
+
+        println("[${DateTime.now()}] Contracts Done")
+
+        println("[${DateTime.now()}] Starting Items")
+        toAdd.filter { it.type == ContractType.ItemExchange }.forEach { writeItems(it.contractId) }
+        println("[${DateTime.now()}] Items Done")
+
+        return Pair(toAdd.count(), newContracts.count() - toAdd.count())
     }
 
     private fun writeItems(contractId: Int) {
-        val client = HttpClient(Apache)
+        val items = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/items/$contractId/?datasource=tranquility&page=$it" })
 
-        var url = "https://esi.evetech.net/latest/contracts/public/items/$contractId/?datasource=tranquility&page=1"
-        val text: String = runBlocking {
-            client.get<String>(url) {
-                headers["accept"] = "application/json"
+        val insertQuery = items.map { it.asJsonObject }.joinToString(", ", "INSERT INTO contractitems VALUES ", ";") {
+
+            val me = if (it.has("material_efficiency")) it["material_efficiency"].nullInt?.toString()
+                    ?: "null" else "null"
+
+            val te = if (it.has("time_efficiency")) it["time_efficiency"].nullInt?.toString() ?: "null" else "null"
+
+            var runs = if (it.has("runs")) it["runs"].nullInt?.toString() ?: "null" else "null"
+
+            val bp = me != "null"
+
+            val bpType = when {
+                me == "null" -> BPType.NotBP
+                runs == "null" -> BPType.BPO
+                runs != "null" -> BPType.BPC
+                else -> BPType.NotBP
             }
-        }
 
-        url = "https://esi.evetech.net/latest/contracts/public/items/$contractId/?datasource=tranquility&page=2"
-        val text2: String = runBlocking {
-            client.get<String>(url) {
-                headers["accept"] = "application/json"
+            if (bpType == BPType.BPO)
+                runs = "0"
+
+            "($contractId, ${it["item_id"]?.nullInt ?: 0}, ${it["type_id"].asInt}, ${it["quantity"].asInt}, " +
+                    "$me, $te, $runs, '$bpType')"
+        }
+        try {
+            transaction {
+                TransactionManager.current().exec(insertQuery)
             }
+        } catch (e: Exception) {
         }
-
-        var items = JsonParser().parse(text).asJsonArray.toList()
-        if (text2 != "[]") {
-            try {
-                items = items + JsonParser().parse(text2).asJsonArray.toList()
-            } catch (e: Exception) {
-
-            }
-        }
-
-        transaction {
-            items.map { it.asJsonObject }.forEach {
-
-                val me = if (it.has("material_efficiency")) it["material_efficiency"].nullInt?.toString()
-                        ?: "null" else "null"
-
-                val te = if (it.has("time_efficiency")) it["time_efficiency"].nullInt?.toString() ?: "null" else "null"
-
-                var runs = if (it.has("runs")) it["runs"].nullInt?.toString() ?: "null" else "null"
-
-                val bp = me != "null"
-
-                val bpType = when {
-                    me == "null" -> BPType.NotBP
-                    runs == "null" -> BPType.BPO
-                    runs != "null" -> BPType.BPC
-                    else -> BPType.NotBP
-                }
-
-                if (bpType == BPType.BPO)
-                    runs = "0"
-
-                TransactionManager.current().exec("""INSERT INTO contractitems VALUES (
-                    |$contractId, ${it["item_id"]?.nullInt ?: 0}, ${it["type_id"].asInt}, ${it["quantity"].asInt},
-                    |$me, $te, $runs, '$bpType'
-                |);""".trimMargin())
-            }
-        }
-
     }
+}
+
+
+internal fun getArrayFromPages(url: (page: Int) -> String, startPage: Int = 1): List<JsonElement> {
+    val client = HttpClient(Apache)
+    val parser = JsonParser()
+
+    val response = runBlocking { client.get<HttpResponse>(url(startPage)) }
+    val pages = response.headers.get("x-pages")?.toInt()
+
+    if (pages == null)
+        return try {
+            parser.parse(runBlocking { response.readText() }).asJsonArray.toList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+    var list: MutableList<JsonElement>
+
+    list = try {
+        parser.parse(runBlocking { response.readText() }).asJsonArray.toMutableList()
+    } catch (e: Exception) {
+        runBlocking {
+            delay(100)
+        }
+        try {
+            parser.parse(runBlocking { response.readText() }).asJsonArray.toMutableList()
+        } catch (e: Exception) {
+            mutableListOf()
+        }
+    }
+
+    for (i in (startPage + 1)..pages) {
+        val text = runBlocking { client.get<String>(url(i)) }
+        list.addAll(parser.parse(text).asJsonArray.toList())
+    }
+
+    return list
 }
