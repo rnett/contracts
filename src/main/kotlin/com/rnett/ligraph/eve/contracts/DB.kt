@@ -40,7 +40,7 @@ class ContractAdapter : TypeAdapter<Contract>() {
     override fun read(input: JsonReader): Contract? {
         input.beginObject()
         input.nextName()
-        val c = Contract.findById(input.nextInt())
+        val c = transaction { Contract.findById(input.nextInt()) }
         input.endObject()
 
         return c
