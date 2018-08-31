@@ -7,6 +7,7 @@ import com.google.gson.annotations.JsonAdapter
 import com.google.gson.reflect.TypeToken
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
+import com.rnett.eve.ligraph.sde.InvTypeAdapter
 import com.rnett.eve.ligraph.sde.industryactivityrecipe
 import com.rnett.eve.ligraph.sde.invtype
 import com.rnett.ligraph.eve.contracts.ContractItem
@@ -25,7 +26,7 @@ class BlueprintAdapter : TypeAdapterFactory {
                 out.beginObject()
 
                 out.name("bpType")
-                delegate.write(out, value.bpType)
+                InvTypeAdapter().write(out, value.bpType)
 
                 out.name("isCopy").value(value.isCopy)
 
@@ -51,7 +52,7 @@ class BlueprintAdapter : TypeAdapterFactory {
 
                 while (input.hasNext()) {
                     when (input.nextName()) {
-                        "bpType" -> bpType = delegate.read(input)
+                        "bpType" -> bpType = InvTypeAdapter().read(input)
                         "isCopy" -> isCopy = input.nextBoolean()
                         "runs" -> runs = input.nextInt()
                         "me" -> runs = input.nextInt()
