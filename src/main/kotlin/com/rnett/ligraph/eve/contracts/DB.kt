@@ -39,6 +39,7 @@ object contracts : IntIdTable(columnName = "contractid") {
 class ContractAdapter : TypeAdapter<Contract>() {
     override fun read(input: JsonReader): Contract? {
         input.beginObject()
+        input.nextName()
         val c = Contract.findById(input.nextInt())
         input.endObject()
 
