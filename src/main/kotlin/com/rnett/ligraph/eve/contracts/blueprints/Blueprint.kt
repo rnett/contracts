@@ -60,6 +60,8 @@ class BlueprintAdapter : TypeAdapterFactory {
                     }
                 }
 
+                input.endObject()
+
                 return if (isCopy!!)
                     BPC(bpType!!, runs!!, me!!, te!!) as T
                 else
