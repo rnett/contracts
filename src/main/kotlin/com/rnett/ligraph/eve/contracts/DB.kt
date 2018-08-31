@@ -1,5 +1,9 @@
 package com.rnett.ligraph.eve.contracts
 
+import com.google.gson.TypeAdapter
+import com.google.gson.annotations.JsonAdapter
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
 import com.rnett.eve.ligraph.sde.invtype
 import com.rnett.eve.ligraph.sde.invtypematerials
 import com.rnett.eve.ligraph.sde.invtypes
@@ -32,6 +36,24 @@ object contracts : IntIdTable(columnName = "contractid") {
     val rawVolume = decimal("volume", 50, 50)
 }
 
+class ContractAdapter : TypeAdapter<Contract>() {
+    override fun read(input: JsonReader): Contract? {
+        input.beginObject()
+        val c = Contract.findById(input.nextInt())
+        input.endObject()
+
+        return c
+    }
+
+    override fun write(out: JsonWriter, value: Contract) {
+        out.beginObject()
+        out.name("contractId").value(value.id.value)
+        out.endObject()
+    }
+
+}
+
+@JsonAdapter(ContractAdapter::class)
 class Contract(id: EntityID<Int>) : IntEntity(id), IContract {
     companion object : IntEntityClass<Contract>(contracts)
 

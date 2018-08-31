@@ -5,6 +5,8 @@ import com.github.salomonbrys.kotson.nullInt
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
+import com.kizitonwose.time.Interval
+import com.kizitonwose.time.minutes
 import com.rnett.ligraph.eve.contracts.blueprints.BPType
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.apache.Apache
@@ -24,7 +26,7 @@ object ContractUpdater {
 
     val regions = mutableListOf<Int>()
 
-    var updateIntervalSeconds: Int = 60 * 5
+    var updateInterval: Interval<*> = 30.minutes // cache time
 
     private lateinit var updateJob: Job
 
@@ -77,7 +79,7 @@ object ContractUpdater {
                 ContractUpdater.updateContractsForRegion(region)
             }
             //println("Update Done")
-            delay(1000 * updateIntervalSeconds)
+            delay(updateInterval.inMilliseconds.longValue)
         }
         //println("Stopped")
         _running = false
@@ -85,6 +87,8 @@ object ContractUpdater {
 
     //TODO use pagination using response header properly.  x-pages in the header will contain the # of pages
     fun updateContractsForRegion(regionID: Int = 10000002 /*The Forge*/): Pair<Int, Int> {
+
+        //TODO use the fact that contracts are in order by time posted (verify this).  If they are, only need to pull until I see dupes. (assuming that there is a way to tell if a certain contract got bought).
 
         println("[${DateTime.now()}] Starting Contracts")
 
