@@ -50,7 +50,6 @@ class ContractAdapter : TypeAdapter<Contract>() {
         out.name("contractId").value(value.id.value)
         out.endObject()
     }
-
 }
 
 @JsonAdapter(ContractAdapter::class)
