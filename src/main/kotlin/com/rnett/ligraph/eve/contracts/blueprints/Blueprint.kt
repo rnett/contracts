@@ -55,8 +55,8 @@ class BlueprintAdapter : TypeAdapterFactory {
                         "bpType" -> bpType = InvTypeAdapter().read(input)
                         "isCopy" -> isCopy = input.nextBoolean()
                         "runs" -> runs = input.nextInt()
-                        "me" -> runs = input.nextInt()
-                        "te" -> runs = input.nextInt()
+                        "me" -> me = input.nextInt()
+                        "te" -> te = input.nextInt()
                     }
                 }
 
