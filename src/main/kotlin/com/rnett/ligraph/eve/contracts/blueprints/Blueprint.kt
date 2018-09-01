@@ -93,6 +93,28 @@ abstract class Blueprint(val bpType: invtype, val runs: Int, val me: Int = 0, va
             if (this is BPC) this
             else null
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Blueprint) return false
+
+        if (bpType != other.bpType) return false
+        if (runs != other.runs) return false
+        if (me != other.me) return false
+        if (te != other.te) return false
+        if (type != other.type) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = bpType.hashCode()
+        result = 31 * result + runs
+        result = 31 * result + me
+        result = 31 * result + te
+        result = 31 * result + type.hashCode()
+        return result
+    }
+
     companion object {
         fun fromItem(item: ContractItem): Blueprint {
 
@@ -106,6 +128,7 @@ abstract class Blueprint(val bpType: invtype, val runs: Int, val me: Int = 0, va
             }
         }
     }
+
 
 }
 
