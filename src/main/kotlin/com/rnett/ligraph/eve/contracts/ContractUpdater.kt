@@ -22,17 +22,19 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.postgresql.core.Utils
 import java.io.File
+import java.io.PrintStream
 
-val logFile = File("./contracts_log.txt")
-
-fun println(text: Any) {
-    System.out.println(text)
-    logFile.appendText(text.toString())
-}
 
 object UpdaterMain {
     @JvmStatic
     fun main(args: Array<String>) {
+
+        val logFile = File("./contracts_log.txt")
+        val stream = PrintStream(logFile.outputStream())
+
+        System.setOut(stream)
+        System.setErr(stream)
+
         connect()
         ContractUpdater.updateContractsForRegion()
         println("\n\n")
@@ -206,9 +208,18 @@ val parser = JsonParser()
 internal fun getArrayFromPages(url: (page: Int) -> String, startPage: Int = 1, useETag: Boolean = true): List<JsonElement> {
 
 
-    val etag: String = if (useETag)
-        transaction { TransactionManager.current().exec("SELECT etag FROM contractetags WHERE url = '${url(startPage)}'") { it.getString("etag") } }!!
-    else
+    val etag: String = if (useETag) {
+
+        transaction {
+            TransactionManager.current().exec("SELECT etag FROM contractetags WHERE url = '${url(startPage)}'") {
+                if (it.next())
+                    it.getString("etag")
+                else
+                    ""
+            }
+        } ?: ""
+
+    } else
         ""
 
     val response = runBlocking {
@@ -222,14 +233,18 @@ internal fun getArrayFromPages(url: (page: Int) -> String, startPage: Int = 1, u
         return emptyList()
     }
 
-    val newEtag: String = response.headers.get("ETag")!!
+    if (useETag) {
+        val newEtag = response.headers["ETag"]
 
-    transaction {
-        TransactionManager.current().exec("DELETE FROM contractetags WHERE url = '${url(startPage)}'")
-        TransactionManager.current().exec("INSERT INTO contractetags VALUES ('${url(startPage)}', '$newEtag')")
+        if (newEtag != null) {
+            transaction {
+                TransactionManager.current().exec("DELETE FROM contractetags WHERE url = '${url(startPage)}'")
+                TransactionManager.current().exec("INSERT INTO contractetags VALUES ('${url(startPage)}', '$newEtag')")
+            }
+        }
     }
 
-    val pages = response.headers.get("x-pages")?.toInt() ?: return try {
+    val pages = response.headers["x-pages"]?.toInt() ?: return try {
         parser.parse(runBlocking { response.readText() }).asJsonArray.toList()
     } catch (e: Exception) {
         emptyList()

@@ -7,6 +7,7 @@ plugins {
     kotlin("jvm") version "1.2.61"
     `maven-publish`
     maven
+    id("com.github.johnrengelman.shadow") version "2.0.2"
 }
 
 group = "com.rnett.ligraph.eve"
@@ -32,7 +33,7 @@ fun getNewestCommit(gitURL: String, default: String = ""): String {
 }
 
 val sde_version = getNewestCommit("rnett/sde", "7c4dad0f8e")
-val core_version = getNewestCommit("rnett/core", "ab6f466a24")
+val core_version = getNewestCommit("rnett/core", "c54915eb12")
 
 dependencies {
     compile(kotlin("stdlib-jdk8"))
@@ -76,4 +77,11 @@ publishing {
 }
 kotlin {
     experimental.coroutines = Coroutines.ENABLE
+}
+
+val jar: Jar by tasks
+jar.apply {
+    manifest.attributes.apply {
+        put("Main-Class", "com.rnett.ligraph.eve.contracts.UpdaterMain")
+    }
 }
