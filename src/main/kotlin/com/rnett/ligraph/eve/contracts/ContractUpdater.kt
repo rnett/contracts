@@ -21,8 +21,25 @@ import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.postgresql.core.Utils
+import java.io.File
 
-//TODO use e-tag (send, get 304 if no changes)
+val logFile = File("./contracts_log.txt")
+
+fun println(text: Any) {
+    System.out.println(text)
+    logFile.appendText(text.toString())
+}
+
+object UpdaterMain {
+    @JvmStatic
+    fun main(args: Array<String>) {
+        connect()
+        ContractUpdater.updateContractsForRegion()
+        println("\n\n")
+    }
+}
+
+
 object ContractUpdater {
 
     val regions = mutableListOf<Int>()
@@ -69,7 +86,7 @@ object ContractUpdater {
     }
 
     private fun getJob() = launch {
-        //TODO some form of logging
+
         _running = true
         //println("Started")
         while (!stop) {
@@ -86,10 +103,7 @@ object ContractUpdater {
         _running = false
     }
 
-    //TODO use pagination using response header properly.  x-pages in the header will contain the # of pages
     fun updateContractsForRegion(regionID: Int = 10000002 /*The Forge*/): Pair<Int, Int> {
-
-        //TODO use the fact that contracts are in order by time posted (verify this).  If they are, only need to pull until I see dupes. (assuming that there is a way to tell if a certain contract got bought).
 
         println("[${DateTime.now()}] Starting Contracts")
 
