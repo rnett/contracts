@@ -102,7 +102,6 @@ object ContractUpdater {
 
         val toRemove = have.filter { !newIds.contains(it) }
         transaction { contracts.deleteWhere { contracts.contractId inList toRemove } }
-
         println("[${DateTime.now()}] Deletion Done")
 
         val toAdd = newContracts.filter { !have.contains(it.contractId) }
@@ -131,7 +130,13 @@ object ContractUpdater {
         println("[${DateTime.now()}] Contracts Done")
 
         println("[${DateTime.now()}] Starting Items")
-        toAdd.filter { it.type == ContractType.ItemExchange }.forEach { writeItems(it.contractId) }
+
+        val jobs = mutableListOf<Job>()
+
+        toAdd.filter { it.type == ContractType.ItemExchange }.forEach { jobs.add(launch { writeItems(it.contractId) }) }
+
+        runBlocking { joinAll(*jobs.toTypedArray()) }
+
         println("[${DateTime.now()}] Items Done")
 
         return Pair(toAdd.count(), newContracts.count() - toAdd.count())
@@ -139,6 +144,9 @@ object ContractUpdater {
 
     private fun writeItems(contractId: Int) {
         val items = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/items/$contractId/?datasource=tranquility&page=$it" })
+
+        if (items.count() == 0)
+            return
 
         val insertQuery = items.map { it.asJsonObject }.joinToString(", ", "INSERT INTO contractitems VALUES ", ";") {
 
@@ -173,22 +181,19 @@ object ContractUpdater {
     }
 }
 
+val client = HttpClient(Apache)
+val parser = JsonParser()
 
 internal fun getArrayFromPages(url: (page: Int) -> String, startPage: Int = 1): List<JsonElement> {
-    val client = HttpClient(Apache)
-    val parser = JsonParser()
 
     val response = runBlocking { client.get<HttpResponse>(url(startPage)) }
-    val pages = response.headers.get("x-pages")?.toInt()
+    val pages = response.headers.get("x-pages")?.toInt() ?: return try {
+        parser.parse(runBlocking { response.readText() }).asJsonArray.toList()
+    } catch (e: Exception) {
+        emptyList()
+    }
 
-    if (pages == null)
-        return try {
-            parser.parse(runBlocking { response.readText() }).asJsonArray.toList()
-        } catch (e: Exception) {
-            emptyList()
-        }
-
-    var list: MutableList<JsonElement>
+    val list: MutableList<JsonElement>
 
     list = try {
         parser.parse(runBlocking { response.readText() }).asJsonArray.toMutableList()
