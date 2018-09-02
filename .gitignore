@@ -46,4 +46,4 @@ build/
 Tests.kt
 
 src/main/kotlin/com/rnett/ligraph/eve/contracts/Tests.kt
-com/rnett/ligraph/eve/contracts/Tests.kt
+com/rnett/ligraph/eve/contracts/Tests.ktDBConnector.kt

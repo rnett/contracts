@@ -32,11 +32,15 @@ fun getNewestCommit(gitURL: String, default: String = ""): String {
 }
 
 val sde_version = getNewestCommit("rnett/sde", "7c4dad0f8e")
+val core_version = getNewestCommit("rnett/core", "ab6f466a24")
 
 dependencies {
     compile(kotlin("stdlib-jdk8"))
     testCompile("junit", "junit", "4.12")
     implementation("com.github.rnett:sde:$sde_version")
+    implementation("com.github.rnett:core:$core_version") {
+        isForce = true
+    }
 }
 
 configure<JavaPluginConvention> {

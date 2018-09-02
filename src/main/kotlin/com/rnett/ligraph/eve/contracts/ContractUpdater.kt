@@ -11,6 +11,7 @@ import com.rnett.ligraph.eve.contracts.blueprints.BPType
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.apache.Apache
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.response.HttpResponse
 import io.ktor.client.response.readText
 import kotlinx.coroutines.experimental.*
@@ -139,11 +140,15 @@ object ContractUpdater {
 
         println("[${DateTime.now()}] Items Done")
 
+        //TODO clear appraisal cache
+
+        transaction { TransactionManager.current().exec("TRUNCATE appraisalcache;") }
+
         return Pair(toAdd.count(), newContracts.count() - toAdd.count())
     }
 
     private fun writeItems(contractId: Int) {
-        val items = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/items/$contractId/?datasource=tranquility&page=$it" })
+        val items = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/items/$contractId/?datasource=tranquility&page=$it" }, useETag = false)
 
         if (items.count() == 0)
             return
@@ -184,9 +189,32 @@ object ContractUpdater {
 val client = HttpClient(Apache)
 val parser = JsonParser()
 
-internal fun getArrayFromPages(url: (page: Int) -> String, startPage: Int = 1): List<JsonElement> {
+internal fun getArrayFromPages(url: (page: Int) -> String, startPage: Int = 1, useETag: Boolean = true): List<JsonElement> {
 
-    val response = runBlocking { client.get<HttpResponse>(url(startPage)) }
+
+    val etag: String = if (useETag)
+        transaction { TransactionManager.current().exec("SELECT etag FROM contractetags WHERE url = '${url(startPage)}'") { it.getString("etag") } }!!
+    else
+        ""
+
+    val response = runBlocking {
+        client.get<HttpResponse>(url(startPage)) {
+            if (useETag && etag != "")
+                header("If-None-Match", etag)
+        }
+    }
+
+    if (response.status.value == 304) { // no changes
+        return emptyList()
+    }
+
+    val newEtag: String = response.headers.get("ETag")!!
+
+    transaction {
+        TransactionManager.current().exec("DELETE FROM contractetags WHERE url = '${url(startPage)}'")
+        TransactionManager.current().exec("INSERT INTO contractetags VALUES ('${url(startPage)}', '$newEtag')")
+    }
+
     val pages = response.headers.get("x-pages")?.toInt() ?: return try {
         parser.parse(runBlocking { response.readText() }).asJsonArray.toList()
     } catch (e: Exception) {
