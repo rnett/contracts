@@ -42,7 +42,7 @@ object UpdaterMain {
         System.setOut(PrintStream(TeeOutputStream(TeeOutputStream(fileStream, stringStream), System.out)))
         System.setErr(PrintStream(TeeOutputStream(TeeOutputStream(fileStream, stringStream), System.err)))
 
-        connect()
+        DBConnection.connect()
 
         val log = UpdateLog.makeDefault()
 
