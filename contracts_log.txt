@@ -1,0 +1,161 @@
+[2018-09-02T17:30:45.619-07:00] Starting Contracts
+[2018-09-02T17:30:46.828-07:00] ESI Query Done
+[2018-09-02T17:30:47.129-07:00] Deletion Done
+java.lang.IllegalStateException: No transaction in context.
+	at org.jetbrains.exposed.sql.transactions.TransactionManager$Companion.current(TransactionApi.kt:70)
+	at org.jetbrains.exposed.dao.EntityClass.warmCache(Entity.kt:483)
+	at org.jetbrains.exposed.dao.EntityClass.testCache(Entity.kt:515)
+	at org.jetbrains.exposed.dao.EntityClass.invalidateEntityInCache$exposed(Entity.kt:509)
+	at org.jetbrains.exposed.dao.Entity.setValue(Entity.kt:232)
+	at com.rnett.ligraph.eve.contracts.UpdateLog.setItems(DB.kt)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion(ContractUpdater.kt:151)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion$default(ContractUpdater.kt:126)
+	at com.rnett.ligraph.eve.contracts.UpdaterMain.main(ContractUpdater.kt:50)
+Exception in thread "main" java.lang.IllegalStateException: No transaction in context.
+	at org.jetbrains.exposed.sql.transactions.TransactionManager$Companion.current(TransactionApi.kt:70)
+	at org.jetbrains.exposed.dao.EntityClass.warmCache(Entity.kt:483)
+	at org.jetbrains.exposed.dao.EntityClass.testCache(Entity.kt:515)
+	at org.jetbrains.exposed.dao.EntityClass.invalidateEntityInCache$exposed(Entity.kt:509)
+	at org.jetbrains.exposed.dao.Entity.setValue(Entity.kt:232)
+	at com.rnett.ligraph.eve.contracts.UpdateLog.setLog(DB.kt)
+	at com.rnett.ligraph.eve.contracts.UpdaterMain.main(ContractUpdater.kt:56)
+[2018-09-02T17:32:19.996-07:00] Starting Contracts
+[2018-09-02T17:32:21.068-07:00] ESI Query Done
+[2018-09-02T17:32:21.082-07:00] Deletion Done
+[2018-09-02T17:32:21.097-07:00] Contracts Query Built
+[main] INFO Exposed - Transaction attempt #0 failed: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30. Statement(s): INSERT INTO contracts VALUES ;
+org.jetbrains.exposed.exceptions.ExposedSQLException: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30
+SQL: [INSERT INTO contracts VALUES ;]
+	at org.jetbrains.exposed.sql.statements.Statement.executeIn$exposed(Statement.kt:61)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:128)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:122)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:101)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:92)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater$updateContractsForRegion$5.invoke(ContractUpdater.kt:169)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater$updateContractsForRegion$5.invoke(ContractUpdater.kt:63)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.inTopLevelTransaction(ThreadLocalTransactionManager.kt:103)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction(ThreadLocalTransactionManager.kt:74)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction(ThreadLocalTransactionManager.kt:57)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction$default(ThreadLocalTransactionManager.kt:57)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion(ContractUpdater.kt:168)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion$default(ContractUpdater.kt:126)
+	at com.rnett.ligraph.eve.contracts.UpdaterMain.main(ContractUpdater.kt:50)
+Caused by: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2440)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2183)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:308)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:441)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:365)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:143)
+	at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:120)
+	at org.apache.commons.dbcp.DelegatingPreparedStatement.executeUpdate(DelegatingPreparedStatement.java:105)
+	at org.apache.commons.dbcp.DelegatingPreparedStatement.executeUpdate(DelegatingPreparedStatement.java:105)
+	at org.jetbrains.exposed.sql.Transaction$exec$2.executeInternal(Transaction.kt:105)
+	at org.jetbrains.exposed.sql.statements.Statement.executeIn$exposed(Statement.kt:59)
+	... 13 more
+[main] INFO Exposed - Transaction attempt #1 failed: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30. Statement(s): INSERT INTO contracts VALUES ;
+org.jetbrains.exposed.exceptions.ExposedSQLException: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30
+SQL: [INSERT INTO contracts VALUES ;]
+	at org.jetbrains.exposed.sql.statements.Statement.executeIn$exposed(Statement.kt:61)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:128)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:122)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:101)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:92)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater$updateContractsForRegion$5.invoke(ContractUpdater.kt:169)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater$updateContractsForRegion$5.invoke(ContractUpdater.kt:63)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.inTopLevelTransaction(ThreadLocalTransactionManager.kt:103)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction(ThreadLocalTransactionManager.kt:74)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction(ThreadLocalTransactionManager.kt:57)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction$default(ThreadLocalTransactionManager.kt:57)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion(ContractUpdater.kt:168)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion$default(ContractUpdater.kt:126)
+	at com.rnett.ligraph.eve.contracts.UpdaterMain.main(ContractUpdater.kt:50)
+Caused by: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2440)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2183)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:308)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:441)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:365)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:143)
+	at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:120)
+	at org.apache.commons.dbcp.DelegatingPreparedStatement.executeUpdate(DelegatingPreparedStatement.java:105)
+	at org.apache.commons.dbcp.DelegatingPreparedStatement.executeUpdate(DelegatingPreparedStatement.java:105)
+	at org.jetbrains.exposed.sql.Transaction$exec$2.executeInternal(Transaction.kt:105)
+	at org.jetbrains.exposed.sql.statements.Statement.executeIn$exposed(Statement.kt:59)
+	... 13 more
+[main] INFO Exposed - Transaction attempt #2 failed: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30. Statement(s): INSERT INTO contracts VALUES ;
+org.jetbrains.exposed.exceptions.ExposedSQLException: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30
+SQL: [INSERT INTO contracts VALUES ;]
+	at org.jetbrains.exposed.sql.statements.Statement.executeIn$exposed(Statement.kt:61)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:128)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:122)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:101)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:92)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater$updateContractsForRegion$5.invoke(ContractUpdater.kt:169)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater$updateContractsForRegion$5.invoke(ContractUpdater.kt:63)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.inTopLevelTransaction(ThreadLocalTransactionManager.kt:103)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction(ThreadLocalTransactionManager.kt:74)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction(ThreadLocalTransactionManager.kt:57)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction$default(ThreadLocalTransactionManager.kt:57)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion(ContractUpdater.kt:168)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion$default(ContractUpdater.kt:126)
+	at com.rnett.ligraph.eve.contracts.UpdaterMain.main(ContractUpdater.kt:50)
+Caused by: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2440)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2183)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:308)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:441)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:365)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:143)
+	at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:120)
+	at org.apache.commons.dbcp.DelegatingPreparedStatement.executeUpdate(DelegatingPreparedStatement.java:105)
+	at org.apache.commons.dbcp.DelegatingPreparedStatement.executeUpdate(DelegatingPreparedStatement.java:105)
+	at org.jetbrains.exposed.sql.Transaction$exec$2.executeInternal(Transaction.kt:105)
+	at org.jetbrains.exposed.sql.statements.Statement.executeIn$exposed(Statement.kt:59)
+	... 13 more
+org.jetbrains.exposed.exceptions.ExposedSQLException: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30
+SQL: [INSERT INTO contracts VALUES ;]
+	at org.jetbrains.exposed.sql.statements.Statement.executeIn$exposed(Statement.kt:61)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:128)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:122)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:101)
+	at org.jetbrains.exposed.sql.Transaction.exec(Transaction.kt:92)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater$updateContractsForRegion$5.invoke(ContractUpdater.kt:169)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater$updateContractsForRegion$5.invoke(ContractUpdater.kt:63)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.inTopLevelTransaction(ThreadLocalTransactionManager.kt:103)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction(ThreadLocalTransactionManager.kt:74)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction(ThreadLocalTransactionManager.kt:57)
+	at org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManagerKt.transaction$default(ThreadLocalTransactionManager.kt:57)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion(ContractUpdater.kt:168)
+	at com.rnett.ligraph.eve.contracts.ContractUpdater.updateContractsForRegion$default(ContractUpdater.kt:126)
+	at com.rnett.ligraph.eve.contracts.UpdaterMain.main(ContractUpdater.kt:50)
+Caused by: org.postgresql.util.PSQLException: ERROR: syntax error at end of input
+  Position: 30
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2440)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2183)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:308)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:441)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:365)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:143)
+	at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:120)
+	at org.apache.commons.dbcp.DelegatingPreparedStatement.executeUpdate(DelegatingPreparedStatement.java:105)
+	at org.apache.commons.dbcp.DelegatingPreparedStatement.executeUpdate(DelegatingPreparedStatement.java:105)
+	at org.jetbrains.exposed.sql.Transaction$exec$2.executeInternal(Transaction.kt:105)
+	at org.jetbrains.exposed.sql.statements.Statement.executeIn$exposed(Statement.kt:59)
+	... 13 more
+[2018-09-02T17:33:33.177-07:00] Starting Contracts
+[2018-09-02T17:33:34.366-07:00] ESI Query Done
+[2018-09-02T17:33:34.376-07:00] Deletion Done
+
+
+
