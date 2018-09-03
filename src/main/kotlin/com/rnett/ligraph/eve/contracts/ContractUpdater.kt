@@ -6,6 +6,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import com.kizitonwose.time.Interval
+import com.kizitonwose.time.milliseconds
 import com.kizitonwose.time.minutes
 import com.rnett.ligraph.eve.contracts.blueprints.BPType
 import io.ktor.client.HttpClient
@@ -15,14 +16,18 @@ import io.ktor.client.request.header
 import io.ktor.client.response.HttpResponse
 import io.ktor.client.response.readText
 import kotlinx.coroutines.experimental.*
+import org.apache.commons.io.output.TeeOutputStream
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.postgresql.core.Utils
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.io.PrintStream
+import java.util.*
 
 
 object UpdaterMain {
@@ -30,14 +35,27 @@ object UpdaterMain {
     fun main(args: Array<String>) {
 
         val logFile = File("./contracts_log.txt")
-        val stream = PrintStream(logFile.outputStream())
 
-        System.setOut(stream)
-        System.setErr(stream)
+        val fileStream = FileOutputStream(logFile, true)
+        val stringStream = ByteArrayOutputStream()
+
+        System.setOut(PrintStream(TeeOutputStream(TeeOutputStream(fileStream, stringStream), System.out)))
+        System.setErr(PrintStream(TeeOutputStream(TeeOutputStream(fileStream, stringStream), System.err)))
 
         connect()
-        ContractUpdater.updateContractsForRegion()
-        println("\n\n")
+
+        val log = UpdateLog.makeDefault()
+
+        try {
+            ContractUpdater.updateContractsForRegion(updateLog = log)
+            println("\n\n")
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            transaction { log.log = stringStream.toString() }
+        }
+        transaction { log.log = stringStream.toString() }
     }
 }
 
@@ -105,9 +123,13 @@ object ContractUpdater {
         _running = false
     }
 
-    fun updateContractsForRegion(regionID: Int = 10000002 /*The Forge*/): Pair<Int, Int> {
+    fun updateContractsForRegion(regionID: Int = 10000002 /*The Forge*/, updateLog: UpdateLog = UpdateLog.makeDefault()) {
+
+        transaction { updateLog.region = regionID }
 
         println("[${DateTime.now()}] Starting Contracts")
+
+        val start = Calendar.getInstance().timeInMillis.milliseconds
 
         val newContracts = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/$regionID/?datasource=tranquility&page=$it" }).map { Gson().fromJson<GsonContract>(it) }
 
@@ -123,8 +145,15 @@ object ContractUpdater {
 
         val toAdd = newContracts.filter { !have.contains(it.contractId) }
 
-        if (toAdd.count() == 0)
-            return Pair(0, newContracts.count())
+        transaction { updateLog.contracts = toAdd.count() }
+
+        if (toAdd.count() == 0) {
+            transaction {
+                updateLog.items = 0
+                updateLog.completed = true
+            }
+            return
+        }
 
         val insertQuery = toAdd.joinToString(", ", "INSERT INTO contracts VALUES ", ";") {
             it.run {
@@ -150,24 +179,30 @@ object ContractUpdater {
 
         val jobs = mutableListOf<Job>()
 
-        toAdd.filter { it.type == ContractType.ItemExchange }.forEach { jobs.add(launch { writeItems(it.contractId) }) }
+        val itemList = toAdd.filter { it.type == ContractType.ItemExchange }.map { async { writeItems(it.contractId) } }
 
-        runBlocking { joinAll(*jobs.toTypedArray()) }
+        transaction {
+            updateLog.items = runBlocking {
+                itemList.awaitAll().sum()
+            }
+        }
 
         println("[${DateTime.now()}] Items Done")
 
-        //TODO clear appraisal cache
-
         transaction { TransactionManager.current().exec("TRUNCATE appraisalcache;") }
 
-        return Pair(toAdd.count(), newContracts.count() - toAdd.count())
+        transaction {
+            updateLog.completed = true
+
+            updateLog.duration = Calendar.getInstance().timeInMillis.milliseconds - start
+        }
     }
 
-    private fun writeItems(contractId: Int) {
+    private fun writeItems(contractId: Int): Int {
         val items = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/items/$contractId/?datasource=tranquility&page=$it" }, useETag = false)
 
         if (items.count() == 0)
-            return
+            return 0
 
         val insertQuery = items.map { it.asJsonObject }.joinToString(", ", "INSERT INTO contractitems VALUES ", ";") {
 
@@ -199,6 +234,8 @@ object ContractUpdater {
             }
         } catch (e: Exception) {
         }
+
+        return items.count()
     }
 }
 

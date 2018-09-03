@@ -42,6 +42,8 @@ dependencies {
     implementation("com.github.rnett:core:$core_version") {
         isForce = true
     }
+
+    implementation("commons-io:commons-io:2.6")
 }
 
 configure<JavaPluginConvention> {

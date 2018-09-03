@@ -4,6 +4,9 @@ import com.google.gson.TypeAdapter
 import com.google.gson.annotations.JsonAdapter
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
+import com.kizitonwose.time.Interval
+import com.kizitonwose.time.Millisecond
+import com.kizitonwose.time.milliseconds
 import com.rnett.eve.ligraph.sde.invtype
 import com.rnett.eve.ligraph.sde.invtypematerials
 import com.rnett.eve.ligraph.sde.invtypes
@@ -11,12 +14,10 @@ import com.rnett.ligraph.eve.contracts.blueprints.BPC
 import com.rnett.ligraph.eve.contracts.blueprints.BPO
 import com.rnett.ligraph.eve.contracts.blueprints.BPType
 import com.rnett.ligraph.eve.contracts.blueprints.Blueprint
-import org.jetbrains.exposed.dao.EntityID
-import org.jetbrains.exposed.dao.IntEntity
-import org.jetbrains.exposed.dao.IntEntityClass
-import org.jetbrains.exposed.dao.IntIdTable
+import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
+import java.util.*
 
 object contracts : IntIdTable(columnName = "contractid") {
     val contractId = integer("contractid").primaryKey()
@@ -175,5 +176,47 @@ class ContractItem(id: EntityID<Int>) : IntEntity(id) {
             BPType.NotBP -> type.typeName + " x $quantity"
         }
     }
+
+}
+
+object updatelogtable : LongIdTable("updatelog", columnName = "time") {
+    val time = long("time").primaryKey()
+    val contracts = integer("contracts")
+    val items = integer("items")
+    val completed = bool("completed")
+    val duration = long("duration")
+    val log = text("log")
+    val region = integer("region")
+}
+
+class UpdateLog(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<UpdateLog>(updatelogtable) {
+        fun makeDefault() = transaction {
+            UpdateLog.new(Calendar.getInstance().timeInMillis) {
+                contracts = -1
+                items = -1
+                completed = false
+                _duration = -1
+                log = "Started"
+            }
+        }
+    }
+
+    val _time by updatelogtable.time
+    var contracts by updatelogtable.contracts
+    var items by updatelogtable.items
+    var completed by updatelogtable.completed
+    var _duration by updatelogtable.duration
+    var log by updatelogtable.log
+    var region by updatelogtable.region
+
+    val time: Interval<Millisecond>
+        get() = _time.milliseconds
+
+    var duration: Interval<*>
+        get() = _duration.milliseconds
+        set(i) {
+            _duration = i.inMilliseconds.longValue
+        }
 
 }
