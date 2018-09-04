@@ -7,9 +7,7 @@ import com.google.gson.stream.JsonWriter
 import com.kizitonwose.time.Interval
 import com.kizitonwose.time.Millisecond
 import com.kizitonwose.time.milliseconds
-import com.rnett.eve.ligraph.sde.invtype
-import com.rnett.eve.ligraph.sde.invtypematerials
-import com.rnett.eve.ligraph.sde.invtypes
+import com.rnett.eve.ligraph.sde.*
 import com.rnett.ligraph.eve.contracts.blueprints.BPC
 import com.rnett.ligraph.eve.contracts.blueprints.BPO
 import com.rnett.ligraph.eve.contracts.blueprints.BPType
@@ -183,6 +181,7 @@ object updatelogtable : LongIdTable("updatelog", columnName = "time") {
     val time = long("time").primaryKey()
     val contracts = integer("contracts")
     val items = integer("items")
+    val mutatedItems = integer("mutateditems")
     val completed = bool("completed")
     val duration = long("duration")
     val log = text("log")
@@ -195,6 +194,7 @@ class UpdateLog(id: EntityID<Long>) : LongEntity(id) {
             UpdateLog.new(Calendar.getInstance().timeInMillis) {
                 contracts = -1
                 items = -1
+                mutatedItems = -1
                 completed = false
                 _duration = -1
                 log = "Started"
@@ -205,6 +205,7 @@ class UpdateLog(id: EntityID<Long>) : LongEntity(id) {
     val _time by updatelogtable.time
     var contracts by updatelogtable.contracts
     var items by updatelogtable.items
+    var mutatedItems by updatelogtable.mutatedItems
     var completed by updatelogtable.completed
     var _duration by updatelogtable.duration
     var log by updatelogtable.log
@@ -218,5 +219,120 @@ class UpdateLog(id: EntityID<Long>) : LongEntity(id) {
         set(i) {
             _duration = i.inMilliseconds.longValue
         }
+
+}
+
+
+object mutateditems : LongIdTable(columnName = "itemid") {
+    val itemId = long("itemid").primaryKey()
+    val contractId = integer("contractid")
+    val typeId = integer("typeid")
+    val baseTypeId = integer("basetypeid")
+    val mutatorTypeId = integer("mutatortypeid")
+
+    val type = reference("typeid", invtypes)
+    val baseType = reference("basetypeid", invtypes)
+    val mutatorType = reference("mutatortypeid", invtypes)
+    val contract = reference("contractid", contracts)
+
+}
+
+class MutatedItem(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<MutatedItem>(mutateditems)
+
+    val itemId by mutateditems.itemId
+
+    internal var _contractId by mutateditems.contractId
+    internal var _typeId by mutateditems.typeId
+    internal var _baseTypeId by mutateditems.baseTypeId
+    internal var _mutatorTypeId by mutateditems.mutatorTypeId
+
+    val contractId get() = _contractId
+    val typeId get() = _typeId
+    val baseTypeId get() = _baseTypeId
+    val mutatorTypeId get() = _mutatorTypeId
+
+    val items by MutatedAttribute referrersOn mutatedattributes.item
+
+    val type by invtype referencedOn mutateditems.type
+    val baseType by invtype referencedOn mutateditems.baseType
+    val mutatorType by invtype referencedOn mutateditems.mutatorType
+
+    val contract by Contract referencedOn mutateditems.contract
+
+    val baseAttributes by lazy { baseType.invtype_dgmtypeattributes_type }
+
+    override fun hashCode(): Int {
+        return itemId.toInt()
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other !is MutatedItem)
+            return false
+
+        return other.itemId == itemId
+    }
+}
+
+object mutatedattributes : LongIdTable(columnName = "itemid\" << 8 | \"attributeid") {
+    val itemId = long("itemid")
+    val typeId = integer("typeid")
+    val attributeId = integer("attributeid")
+    val baseValue = float("basevalue")
+    val newValue = float("newvalue")
+    val percentChange = float("percentchange")
+
+    val item = reference("itemid", mutateditems)
+    val type = reference("typeid", invtypes)
+    val attribute = reference("attributeid", dgmattributetypes)
+}
+
+class MutatedAttribute(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<MutatedAttribute>(mutatedattributes) {
+
+        fun idFromPKs(itemId: Int, attributeId: Int): Int {
+            return itemId shl 8 or attributeId
+        }
+
+        fun findFromPKs(itemId: Int, attributeId: Int): dgmtypeattribute? {
+            return dgmtypeattribute.findById(idFromPKs(itemId, attributeId))
+        }
+    }
+
+    val itemId by mutatedattributes.itemId
+    internal var _typeId by mutatedattributes.typeId
+    internal var _attributeId by mutatedattributes.attributeId
+    internal var _baseValue by mutatedattributes.baseValue
+    internal var _newValue by mutatedattributes.newValue
+    internal var _percentChange by mutatedattributes.percentChange
+
+    val typeId get() = _typeId
+    val attributeId get() = _attributeId
+    val baseValue get() = _baseValue
+    val newValue get() = _newValue
+    val percentChange get() = _percentChange
+
+    val item by MutatedItem referencedOn mutatedattributes.item
+    val type by invtype referencedOn mutatedattributes.type
+    val attribute by dgmattributetype referencedOn mutatedattributes.attribute
+
+    val highIsGood by lazy { transaction { attribute.highIsGood } }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is MutatedAttribute) return false
+
+        if (itemId != other.itemId) return false
+        if (attributeId != other.attributeId) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = itemId.toInt()
+        result = 31 * result + attributeId
+        return result
+    }
+
 
 }

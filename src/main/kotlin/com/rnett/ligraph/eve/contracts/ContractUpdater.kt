@@ -4,20 +4,29 @@ import com.github.salomonbrys.kotson.fromJson
 import com.github.salomonbrys.kotson.nullInt
 import com.google.gson.Gson
 import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.kizitonwose.time.Interval
 import com.kizitonwose.time.milliseconds
 import com.kizitonwose.time.minutes
+import com.rnett.core.Cache
+import com.rnett.eve.ligraph.sde.invtype
+import com.rnett.eve.ligraph.sde.invtypes
+import com.rnett.eve.ligraph.sde.invtypes.published
+import com.rnett.eve.ligraph.sde.invtypes.typeName
 import com.rnett.ligraph.eve.contracts.blueprints.BPType
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.apache.Apache
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.response.HttpResponse
 import io.ktor.client.response.readText
 import kotlinx.coroutines.experimental.*
 import org.apache.commons.io.output.TeeOutputStream
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -58,7 +67,6 @@ object UpdaterMain {
         transaction { log.log = stringStream.toString() }
     }
 }
-
 
 object ContractUpdater {
 
@@ -131,11 +139,13 @@ object ContractUpdater {
 
         val start = Calendar.getInstance().timeInMillis.milliseconds
 
-        val newContracts = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/$regionID/?datasource=tranquility&page=$it" }).map { Gson().fromJson<GsonContract>(it) }
+        val newContracts = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/$regionID/?datasource=tranquility&page=$it" })
+                .asSequence()
+                .map { Gson().fromJson<GsonContract>(it) }
 
         println("[${DateTime.now()}] ESI Query Done")
 
-        val newIds = newContracts.map { it.contractId }.toSet()
+        val newIds = newContracts.asSequence().map { it.contractId }.toSet()
 
         val have = transaction { contracts.slice(contracts.contractId).selectAll().map { it[contracts.contractId] }.toSet() }
 
@@ -179,15 +189,33 @@ object ContractUpdater {
 
         val jobs = mutableListOf<Job>()
 
-        val itemList = toAdd.filter { it.type == ContractType.ItemExchange }.map { async { writeItems(it.contractId) } }
+        val itemList = toAdd.asSequence().filter { it.type == ContractType.ItemExchange }.map { async { writeItems(it.contractId) } }.toList()
+
+        val items = runBlocking { itemList.awaitAll() }
+                .asSequence().map { (contractId, json) -> json.map { Pair(contractId, it) } }.reduce { a, b -> a + b }
 
         transaction {
-            updateLog.items = runBlocking {
-                itemList.awaitAll().sum()
-            }
+            updateLog.items = items.count()
         }
 
         println("[${DateTime.now()}] Items Done")
+
+        println("[${DateTime.now()}] Starting Mutated Items")
+
+        val mutated = items.asSequence().filter {
+            it.second["item_id"]?.nullInt != null && it.second["type_id"]?.nullInt != null &&
+                    abyssalTypes.contains(it.second["type_id"].asInt)
+        }
+
+        runBlocking {
+            mutated.map { launch { writeMutatedItem(it.first, it.second["item_id"].asLong, it.second["type_id"].asInt) } }.toList().joinAll()
+        }
+
+        transaction {
+            updateLog.mutatedItems = mutated.count()
+        }
+
+        println("[${DateTime.now()}] Mutated Items Done")
 
         transaction { TransactionManager.current().exec("TRUNCATE appraisalcache;") }
 
@@ -198,13 +226,18 @@ object ContractUpdater {
         }
     }
 
-    private fun writeItems(contractId: Int): Int {
-        val items = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/items/$contractId/?datasource=tranquility&page=$it" }, useETag = false)
+
+    val abyssalTypes = transaction { invtype.wrapRows(invtypes.select { typeName like "%Abyssal%" and (published eq true) }).map { it.typeID }.toSet() }
+
+    private fun writeItems(contractId: Int): Pair<Int, List<JsonObject>> {
+        val items = getArrayFromPages({ "https://esi.evetech.net/latest/contracts/public/items/$contractId/?datasource=tranquility&page=$it" }, useETag = false).map { it.asJsonObject }
 
         if (items.count() == 0)
-            return 0
+            return Pair(contractId, items)
 
-        val insertQuery = items.map { it.asJsonObject }.joinToString(", ", "INSERT INTO contractitems VALUES ", ";") {
+        var mutatedItems = 0
+
+        val insertQuery = items.joinToString(", ", "INSERT INTO contractitems VALUES ", ";") {
 
             val me = if (it.has("material_efficiency")) it["material_efficiency"].nullInt?.toString()
                     ?: "null" else "null"
@@ -232,10 +265,57 @@ object ContractUpdater {
             transaction {
                 TransactionManager.current().exec(insertQuery)
             }
+
         } catch (e: Exception) {
         }
 
-        return items.count()
+        return Pair(contractId, items)
+    }
+
+    private val attributeCache = Cache<invtype, Map<Int, Double>> {
+        transaction {
+            it.invtype_dgmtypeattributes_type.toList().map {
+                Pair(it.attributeID, it.valueFloat?.toDouble() ?: it.valueInt?.toDouble() ?: 0.0)
+            }
+        }.toMap()
+    }
+
+    private fun writeMutatedItem(contractId: Int, itemId: Long, typeId: Int) {
+
+        val text = esiStringCall("https://esi.evetech.net/latest/dogma/dynamic/items/$typeId/$itemId/?datasource=tranquility")
+
+        val json = parser.parse(text).asJsonObject
+
+        val item = transaction {
+            MutatedItem.new(itemId) {
+                _contractId = contractId
+                _typeId = typeId
+                _baseTypeId = json["source_type_id"].asInt
+                _mutatorTypeId = json["mutator_type_id"].asInt
+            }
+        }
+
+        val baseAttributes = attributeCache[transaction { item.baseType }]
+
+        val changedAttributes = json["dogma_attributes"].asJsonArray.asSequence().map { it.asJsonObject }.map { Pair(it["attribute_id"].asInt, it["value"].asDouble) }
+                .filter { baseAttributes.containsKey(it.first) && baseAttributes[it.first] != it.second }
+
+        if (changedAttributes.count() > 0) {
+
+            val insertQuery = changedAttributes.joinToString(", ", "INSERT INTO mutatedattributes VALUES ", ";")
+            { "($itemId, ${it.first}, ${baseAttributes[it.first]!!}, ${it.second}, ${100 * (it.second - baseAttributes[it.first]!!) / baseAttributes[it.first]!!}, $typeId)" }
+
+
+            try {
+                transaction {
+                    TransactionManager.current().exec(insertQuery)
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
     }
 }
 
@@ -259,12 +339,11 @@ internal fun getArrayFromPages(url: (page: Int) -> String, startPage: Int = 1, u
     } else
         ""
 
-    val response = runBlocking {
-        client.get<HttpResponse>(url(startPage)) {
-            if (useETag && etag != "")
-                header("If-None-Match", etag)
-        }
+    val response = esiCall<HttpResponse>(url(startPage)) {
+        if (useETag && etag != "")
+            header("If-None-Match", etag)
     }
+
 
     if (response.status.value == 304) { // no changes
         return emptyList()
@@ -292,9 +371,7 @@ internal fun getArrayFromPages(url: (page: Int) -> String, startPage: Int = 1, u
     list = try {
         parser.parse(runBlocking { response.readText() }).asJsonArray.toMutableList()
     } catch (e: Exception) {
-        runBlocking {
-            delay(100)
-        }
+        runBlocking { delay(100) }
         try {
             parser.parse(runBlocking { response.readText() }).asJsonArray.toMutableList()
         } catch (e: Exception) {
@@ -303,9 +380,18 @@ internal fun getArrayFromPages(url: (page: Int) -> String, startPage: Int = 1, u
     }
 
     for (i in (startPage + 1)..pages) {
-        val text = runBlocking { client.get<String>(url(i)) }
+        val text = esiStringCall(url(i))
         list.addAll(parser.parse(text).asJsonArray.toList())
     }
 
     return list
 }
+
+inline fun <reified T> esiCall(url: String, crossinline builder: HttpRequestBuilder.() -> Unit = {}) = runBlocking {
+    client.get<T>(url) {
+        header("User-Agent", "Ligraph / JNett96@gnail.com")
+        builder()
+    }
+}
+
+fun esiStringCall(url: String, builder: HttpRequestBuilder.() -> Unit = {}): String = esiCall(url, builder)
