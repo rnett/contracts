@@ -38,7 +38,7 @@ dependencies {
     compile(kotlin("stdlib-jdk8"))
     testCompile("junit", "junit", "4.12")
     implementation("com.github.rnett:sde:$sde_version")
-    implementation("com.github.rnett:core:1.2.0") {
+    implementation("com.github.rnett:core:1.2.1") {
         isForce = true
     }
 
