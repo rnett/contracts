@@ -25,8 +25,9 @@ interface IContract {
     val type: ContractType
 }
 
-enum class ContractType(val raw: String, val hasItems: Boolean = false) {
-    ItemExchange("item_exchange", true), Courier("courier"), Auction("auction", true), Other("other");
+enum class ContractType(val raw: String, val displayName: String, val hasItems: Boolean = false) {
+    ItemExchange("item_exchange", "Item Exchange", true), Courier("courier", "Courier"),
+    Auction("auction", "Auction", true), Other("other", "Unknown");
 
     companion object {
         fun fromRaw(raw: String) = ContractType.values().find { it.raw == raw } ?: Other
