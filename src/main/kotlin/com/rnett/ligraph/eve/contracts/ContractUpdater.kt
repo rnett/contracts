@@ -145,6 +145,15 @@ object ContractUpdater {
 
         println("[${DateTime.now()}] ESI Query Done")
 
+        if (newContracts.count() == 0) { // hit etag
+            transaction {
+                updateLog.items = 0
+                updateLog.completed = true
+                updateLog.duration = Calendar.getInstance().timeInMillis.milliseconds - start
+            }
+            return
+        }
+
         val newIds = newContracts.asSequence().map { it.contractId }.toSet()
 
         val have = transaction { contracts.slice(contracts.contractId).selectAll().map { it[contracts.contractId] }.toSet() }
@@ -158,9 +167,10 @@ object ContractUpdater {
         transaction { updateLog.contracts = toAdd.count() }
 
         if (toAdd.count() == 0) {
+            println("Hit ESI e-tag Cache")
             transaction {
                 updateLog.items = 0
-                updateLog.completed = true
+                updateLog.duration = Calendar.getInstance().timeInMillis.milliseconds - start
             }
             return
         }
