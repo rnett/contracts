@@ -84,20 +84,18 @@ class Contract(id: EntityID<Int>) : IntEntity(id), IContract {
 
     private val _items by ContractItem referrersOn contractitems.contract
 
-    val items by lazy { _items.filter { !it.required } }
+    val items by lazy { transaction { _items.filter { !it.required } } }
 
-    val requiredItems by lazy { _items.filter { it.required } }
+    val requiredItems by lazy { transaction { _items.filter { it.required } } }
 
     val blueprints by lazy {
-        transaction {
-            items.filter { it.bpType != BPType.NotBP }.map {
-                if (it.bpType == BPType.BPC) {
-                    BPC(it.type, it.runs!!, it.me ?: 0, it.te ?: 0)
-                } else {
-                    BPO(it.type, it.me ?: 0, it.te ?: 0)
-                }
-            }.toList()
-        }
+        items.filter { it.bpType != BPType.NotBP }.map {
+            if (it.bpType == BPType.BPC) {
+                BPC(it.type, it.runs!!, it.me ?: 0, it.te ?: 0)
+            } else {
+                BPO(it.type, it.me ?: 0, it.te ?: 0)
+            }
+        }.toList()
     }
 
     val bpcs by lazy { blueprints.map { it.asBpc() }.filterNotNull() }
