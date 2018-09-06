@@ -274,8 +274,10 @@ object ContractUpdater {
             if (bpType == BPType.BPO)
                 runs = "0"
 
+            val required = (it["is_included"].nullBool == false)
+
             "($contractId, ${it["item_id"]?.nullInt ?: 0}, ${it["type_id"].asInt}, ${it["quantity"].asInt}, " +
-                    "$me, $te, $runs, '$bpType')"
+                    "$me, $te, $runs, '$bpType', $required)"
         }
         try {
             transaction {
