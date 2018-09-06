@@ -216,7 +216,7 @@ object ContractUpdater {
 
         val mutated = items.asSequence().filter {
             it.second["item_id"]?.nullInt != null && it.second["type_id"]?.nullInt != null &&
-                    abyssalTypes.contains(it.second["type_id"].asInt)
+                    it.second["is_included"].nullBool == true && abyssalTypes.contains(it.second["type_id"].asInt)
         }
 
         runBlocking {
