@@ -82,7 +82,11 @@ class Contract(id: EntityID<Int>) : IntEntity(id), IContract {
     override val reward by lazy { rawReward.toDouble() }
     override val volume by lazy { rawVolume.toDouble() }
 
-    val items by ContractItem referrersOn contractitems.contract
+    private val _items by ContractItem referrersOn contractitems.contract
+
+    val items by lazy { _items.filter { !it.required } }
+
+    val requiredItems by lazy { _items.filter { it.required } }
 
     val blueprints by lazy {
         transaction {
