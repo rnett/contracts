@@ -1,6 +1,7 @@
 package com.rnett.ligraph.eve.contracts
 
 import com.github.salomonbrys.kotson.fromJson
+import com.github.salomonbrys.kotson.nullBool
 import com.github.salomonbrys.kotson.nullInt
 import com.google.gson.Gson
 import com.google.gson.JsonElement
@@ -168,6 +169,7 @@ object ContractUpdater {
 
         if (toAdd.count() == 0) {
             println("Hit ESI e-tag Cache")
+            //TODO re-run in 5 mins or so (or wait?)
             transaction {
                 updateLog.items = 0
                 updateLog.duration = Calendar.getInstance().timeInMillis.milliseconds - start
@@ -245,7 +247,11 @@ object ContractUpdater {
         if (items.count() == 0)
             return Pair(contractId, items)
 
-        var mutatedItems = 0
+        if (items.count { it["is_included"].nullBool == false } > 0) {
+            transaction {
+                Contract.findById(contractId)?.setType(ContractType.Trade)
+            }
+        }
 
         val insertQuery = items.joinToString(", ", "INSERT INTO contractitems VALUES ", ";") {
 

@@ -69,7 +69,8 @@ class Contract(id: EntityID<Int>) : IntEntity(id), IContract {
     val rawReward by contracts.rawReward
     override val startLocationId by contracts.startLocationId
     override val title by contracts.title
-    val rawType by contracts.rawType
+    private var _rawType by contracts.rawType
+    val rawType get() = _rawType
     val rawVolume by contracts.rawVolume
 
     override val type: ContractType by lazy { ContractType.fromRaw(rawType) }
@@ -112,6 +113,10 @@ class Contract(id: EntityID<Int>) : IntEntity(id), IContract {
 
         return other.contractId == contractId
     }
+
+    internal fun setType(type: ContractType) {
+        _rawType = type.raw
+    }
 }
 
 object contractitems : IntIdTable(columnName = "contractid\" << 8 | \"itemid") {
@@ -124,6 +129,7 @@ object contractitems : IntIdTable(columnName = "contractid\" << 8 | \"itemid") {
     val te = integer("te").nullable()
     val runs = integer("runs").nullable()
     val rawBpType = varchar("bptype", 20)
+    val required = bool("required")
 
     val contract = reference("contractid", contracts)
     val type = reference("typeid", invtypes)
@@ -148,6 +154,7 @@ class ContractItem(id: EntityID<Int>) : IntEntity(id) {
     val te by contractitems.te
     val runs by contractitems.runs
     val rawBpType by contractitems.rawBpType
+    val required by contractitems.required
 
     val contract by Contract referencedOn contractitems.contract
     val type by invtype referencedOn contractitems.type
